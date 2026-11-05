@@ -1,0 +1,15 @@
+# 依赖与本机临时文件
+node_modules/
+*.log
+.DS_Store
+.tmp/
+
+# 源码目录里的视频副本
+/videos/
+
+# 293 MB 视频不进 Git：GitHub Pages 阶段由代码自动回退原站视频源播放；
+# 正式上线走 Cloudflare Pages 直传 dist/（含 videos/），无需经过 Git。
+/dist/videos/
+
+# 本地验证截图，非站点资源
+preview-video.png

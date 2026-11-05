@@ -1,0 +1,14 @@
+{
+  "name": "drawmathhub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "小学数学画图解题法 DrawMathHub 复刻（保留原作者 Sogrey 署名，仅作个人学习/研究参考）。暗色暖棕玻璃主题对齐原站。",
+  "scripts": {
+    "serve": "python3 -m http.server 4173",
+    "build": "node build-standalone.cjs"
+  },
+  "dependencies": {
+    "jsdom": "^31.0.0"
+  }
+}
