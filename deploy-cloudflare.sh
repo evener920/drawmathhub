@@ -31,6 +31,15 @@ EOF
   exit 1
 fi
 
+# 实测坑：本机代理（127.0.0.1 的 HTTP_PROXY）在上传 293 MB 时会触发
+# UND_ERR_HEADERS_TIMEOUT，11 分钟后报 "Failed to upload files. Error: {}"。
+# 直连 api.cloudflare.com 反而更快（小请求 1.7s，1MB 部署 17s），故默认绕开代理。
+# 若你的网络必须走代理，用 CF_USE_PROXY=1 ./deploy-cloudflare.sh ... 保留代理。
+if [ -z "${CF_USE_PROXY:-}" ]; then
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+  echo "▶ 已绕开本机代理直连（避免大文件上传超时）；如需代理请设 CF_USE_PROXY=1"
+fi
+
 echo "▶ 部署 dist/ → Cloudflare Pages：$PROJECT ($BRANCH)"
 echo "  共 61 个文件 / 293 MB / 单文件最大 6.32 MB（限 25 MiB，符合）"
-exec "$WRANGLER" pages deploy dist --project-name "$PROJECT" --branch "$BRANCH"
+exec "$WRANGLER" pages deploy dist --project-name "$PROJECT" --branch "$BRANCH" --commit-dirty=true
