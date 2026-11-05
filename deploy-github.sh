@@ -17,30 +17,42 @@ git config http.postBuffer 524288000
 git add -A
 git commit -m "Deploy DrawMathHub replica" 2>/dev/null || echo "(无新改动，跳过 commit)"
 
+# 视频由 .gitignore 排除，仓库约 2.6 MB，push 秒级完成
 if git remote get-url origin >/dev/null 2>&1; then
-  echo "▶ 推送到已有 remote（含 293 MB 视频，首次可能数分钟）"
+  echo "▶ 推送到已有 remote（轻量：不含 293 MB 视频）"
   git push -u origin main
 else
-  echo "▶ 创建仓库并推送（含 293 MB 视频，首次可能数分钟）"
-  # 不用 --push：大仓库交给下面的显式 push，失败时可直接重跑本脚本续推
+  echo "▶ 创建仓库并推送（轻量：不含 293 MB 视频）"
+  # 不用 --push：显式 push 失败时可直接重跑本脚本续推
   gh repo create "$REPO" --"$VIS" --source=. --remote=origin
   git push -u origin main
 fi
 
-cat <<'EOF'
+OWNER="$(gh api user --jq .login)"
+PAGES_API="repos/$OWNER/$REPO/pages"
 
-✓ 代码已推送。接下来开启 Pages（二选一）：
+# Pages 必须用 GitHub Actions 模式："Deploy from a branch" 只允许 / 或 /docs，
+# 填 /dist 会被 API 以 422 拒绝（实测）。
+if gh api "$PAGES_API" >/dev/null 2>&1; then
+  echo "✓ Pages 已配置"
+elif printf '%s' '{"build_type":"workflow"}' | gh api -X POST "$PAGES_API" --input - >/dev/null 2>&1; then
+  echo "✓ Pages 已启用（GitHub Actions 模式）"
+else
+  echo "⚠ Pages 启用失败，请到 Settings → Pages 手动把 Source 选为 GitHub Actions"
+fi
 
-【推荐】GitHub Actions（已自带 .github/workflows/pages.yml）
-  仓库 → Settings → Pages → Build and deployment → Source 选 "GitHub Actions"
-  之后每次 push main 自动部署。
+if gh workflow run pages.yml --repo "$OWNER/$REPO" >/dev/null 2>&1; then
+  echo "✓ 已触发部署"
+else
+  echo "⚠ 触发部署失败，push 一次 main 或到 Actions 手动运行即可"
+fi
 
-【备用】Deploy from a branch
-  仓库 → Settings → Pages → Source 选 "Deploy from a branch"
-  Branch: main  /  目录: /dist   → Save
+cat <<EOF
 
-站点地址（项目站，相对路径已适配子目录）：
-  https://evener920.github.io/<仓库名>/
+站点地址：https://$OWNER.github.io/$REPO/
+之后每次 push main 自动部署。
 
-⚠ 内容含原作者 Sogrey 的 60 个讲解视频，公开仓库 / 公开上线前请先取得授权。
+说明：本仓库刻意不含 293 MB 视频（.gitignore 排除 dist/videos/），
+     线上视频自动回退原站播放；完整自托管版请用 deploy-cloudflare.sh 直传 dist/，
+     并可在 Cloudflare 一键绑定 math.201573.xyz。
 EOF

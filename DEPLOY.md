@@ -61,20 +61,21 @@ dist/
 
 > **Safari / iOS 视频黑屏的已知坑**：Cloudflare 处理 MP4 的 Range 请求时可能带 weak ETag，Safari 会拒绝缓存响应。若出现，在 CF 控制台按序加两条 Cache Rules（匹配 `URI Full Wildcard *.mp4`）：① Eligible for cache + 打开 **Respect Strong ETags**；② **Bypass cache**，且 ② 排在 ① 之后。`dist/_headers` 只加了 CORS 与 nosniff，**故意不设长 `Cache-Control: immutable`**，避免放大该问题。
 
-## 路线 B：GitHub Pages
+## 路线 B：GitHub Pages（已实际部署 ✅）
+
+线上地址 **https://evener920.github.io/drawmathhub/** ｜ 仓库 `evener920/drawmathhub`（public / `main`）
 
 ```bash
-./deploy-github.sh drawmathhub private     # 默认私有，见下方版权说明
+./deploy-github.sh drawmathhub public
+printf '%s' '{"build_type":"workflow"}' | gh api -X POST repos/evener920/drawmathhub/pages --input -
+gh workflow run pages.yml --repo evener920/drawmathhub
 ```
 
-脚本完成 `git init` → 提交 → `gh repo create ... --push`。之后在仓库 **Settings → Pages** 二选一：
+> ⚠️ **实测坑**：Pages 的「Deploy from a branch」发布目录**只允许 `/` 或 `/docs`**，填 `/dist` 会被 API 直接拒绝（422：`/dist is not a possible value`）。所以本站**必须走 GitHub Actions**——`.github/workflows/pages.yml` 里 `path: dist` 可指定任意目录，且不受「每小时 10 次构建」限制。
 
-- **推荐**：Source 选 **GitHub Actions**（已自带 `.github/workflows/pages.yml`，每次 push main 自动部署，且不受「每小时 10 次构建」限制）
-- 备用：Source 选 **Deploy from a branch** → Branch `main` / 目录 `/dist`
+**GitHub 版是轻量版**：`.gitignore` 排除了 `dist/videos/`。实测把 293 MB 视频塞进 Git 会让 push 拖到十几分钟，所以此处只推 **2.58 MB / 27 个文件**（秒级完成）。GitHub Pages 上本地视频 404 后，代码自动回退到原站 `sogrey.top` 播放（原站开放 CORS）——**画面一致，但依赖联网和原站可用**。完整自托管版走路线 A 的 CF Pages 直传（带 `videos/`，不经 Git）。
 
-地址为 `https://evener920.github.io/drawmathhub/`。`dist/.nojekyll` 已放置避免 Jekyll 处理；站内资源全是相对路径、路由是 hash，**子路径可直接工作，不需要 rewrite / SPA fallback**。
-
-> `dist/` 含 293 MB 视频会进 Git 历史；版本迭代多的话建议把视频迁到 R2（见「进阶」）。
+`dist/.nojekyll` 已放置；站内资源全是相对路径、路由是 hash，**子路径可直接工作，不需要 rewrite / SPA fallback**。
 
 ## 路线 C：GitHub 存源码 + Cloudflare Pages 自动部署
 
@@ -118,9 +119,9 @@ curl -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_
 
 > ⚠️ 灰云意味着失去 CF CDN；叠加 GitHub Pages 100 GB/月带宽软限和国内访问速度，**视频站不建议走这条**。另外启用自定义域后 `evener920.github.io/drawmathhub/` 会 301 跳转，DNS 没配好前站点会打不开——所以现在 `dist/` 里**故意没有**放 `CNAME`。
 
-### 当前阶段（已推送即可访问）
+### 当前阶段（已上线）
 
-`https://evener920.github.io/drawmathhub/` —— 先用于验证线上真实渲染；正式域名按上面「推荐」接上即可，两边用的是同一个 `dist/`，切换零改动。
+`https://evener920.github.io/drawmathhub/` —— 先用于验证线上真实渲染（视频走原站兜底）。正式域名按上面「推荐」接 CF Pages：用的是**同一份 `dist/`**，只是那次上传**带上 `videos/`**，页面代码零改动。
 
 ## 进阶：视频放 R2（长期更优）
 
@@ -145,19 +146,23 @@ server {
 ## 视频来源与回退
 
 - 视频按原站真实约定存放：`videos/{题目id}/{mainProblem.id}/full.mp4`。
-- 60 个视频已从原站完整下载并逐一按 `Content-Length` 校验（0 个截断），**部署后完全离线自播，不依赖 sogrey.top**。
-- 代码仍保留兜底：若某题本地文件缺失，会自动回退播放 `https://sogrey.top/DrawMathHub/videos/...`（原站开放 CORS）。联网是增强项，不是必需项。
+- 60 个视频已从原站完整下载并逐一按 `Content-Length` 校验（0 个截断）。**CF Pages 直传版带 `videos/`，完全自播、不依赖 sogrey.top**。
+- 代码保留兜底：若某题本地文件缺失，自动回退播放 `https://sogrey.top/DrawMathHub/videos/...`（原站开放 CORS）。
+- **GitHub Pages 版故意不上传 `videos/`**（293 MB 不进 Git），因此线上走的就是这条回退；CF 直传版不会触发回退。
 
 ## 版权与合规（公开上线前必读）
 
-题目与讲解视频版权归原作者 Sogrey（https://sogrey.top/DrawMathHub/）。本复刻保留完整署名，仅作个人学习 / 研究使用。**把 60 个原站视频随站点公开发布，属于再分发，请先取得原作者授权**；否则建议保持私有仓库 / 内网部署，或移除视频仅保留文字内容。
+题目与讲解视频版权归原作者 Sogrey（https://sogrey.top/DrawMathHub/）。本复刻保留完整署名，仅作个人学习 / 研究使用。
+
+当前 **GitHub Pages 版不托管任何 mp4 文件**（只热链原站公开视频），风险较低。但路线 A 的 **CF Pages 直传版会把 60 个 mp4 随站点公开发布，属于再分发**——正式对外前请先取得原作者授权，或仅用于内网 / 个人用途。
 
 GitHub Pages 官方条款对「复刻现有网站作为学习练习」有明确豁免条件，若走公开 Pages 需同时满足：① 代码由自己编写；② 不收集用户数据；③ **页面显著位置标注免责声明，说明本站与原站无关、仅供教育用途**。当前页面只有数据里的署名，**尚未加这条显著声明**——要公开部署请先补上（可加在页脚）。此外 Pages 禁止用作商业性网盘 / 面向交易的服务。
 
 ## 常见部署注意事项
 
-- 实测：61 个文件、293.4 MB，最大单文件 6.32 MB；Cloudflare Pages 单文件上限 25 MiB，GitHub 单文件上限 100 MB，均满足。
-- **不要只上传 `index.html` 而漏掉 `videos/`**，否则页面会显示「视频暂时无法加载」。`dist/_headers`、`dist/.nojekyll` 也要一起上传。
+- 完整 `dist/` 实测：61 个文件、293.4 MB，最大单文件 6.32 MB；CF Pages 单文件上限 25 MiB、GitHub 单文件上限 100 MB，均满足。
+- **CF Pages 直传**：必须连 `videos/` 一起上传，否则只剩热链兜底；`dist/_headers`、`dist/.nojekyll` 也一起带。
+- **GitHub Actions 部署**：`.gitignore` 已排除 `dist/videos/`，仓库只有 2.58 MB，push 秒级；这是刻意的轻量策略，不是漏文件。
 - `index.html` 完全自包含（无 CDN、无 fetch），但 `videos/` 是独立文件，**必须同源部署**。
 - 站点为纯静态，无后端、无数据库；昵称与练习记录存在浏览器 `localStorage`，换域名/换浏览器不共享。
 - 部署后自检：打开任意讲次 → 「讲解视频」卡片应显示 `0:00 / 2:06` 之类时长 → 拖动进度条能跳（验证 Range 生效）。
