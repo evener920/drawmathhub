@@ -90,9 +90,15 @@ gh workflow run pages.yml --repo evener920/drawmathhub
 ### 推荐：Cloudflare Pages（终局方案，域名一键）
 
 ```bash
-/opt/homebrew/bin/wrangler login          # 只需一次，当前 token 已过期
-./deploy-cloudflare.sh drawmathhub main   # 直传 dist，无需经过 Git
+/opt/homebrew/bin/wrangler login
 ```
+
+```bash
+./deploy-cloudflare.sh drawmathhub main
+```
+
+> 两条命令**逐条单独执行**：`wrangler login` 只需一次（当前 token 已过期），会打开浏览器让你授权；授权完成后再跑第二条直传 `dist/`（不经 Git）。
+> ⚠️ 不要把行内 `#` 注释一起复制进终端 —— wrangler 会把中文注释当成未知参数，报 `Unknown arguments` 并只打印帮助、实际并未登录。
 
 然后 CF 控制台：**Workers & Pages → drawmathhub → Custom domains → Add a custom domain** → 填 `math.201573.xyz` → 激活。CF 自动加 CNAME 记录并签发证书，1–2 分钟生效，**不用手工改 DNS、不用 CNAME 文件**。
 
